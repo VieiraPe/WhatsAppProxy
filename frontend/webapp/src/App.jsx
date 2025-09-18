@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import * as signalR from "@microsoft/signalr";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [messages, setMessages] = useState([]);
+  const [status, setStatus] = useState("desconectado");
+
+  useEffect(() => {
+    const url = import.meta.env.VITE_SIGNALR_URL || "https://localhost:5001/hub";
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(url)
+      .withAutomaticReconnect()
+      .build();
+
+    connection.on("NewMessage", (msg) => {
+      console.log("NewMessage", msg);
+      setMessages((m) => [msg, ...m]);
+    });
+
+    connection.start()
+      .then(() => setStatus("conectado"))
+      .catch((err) => {
+        console.error(err);
+        setStatus("erro");
+      });
+
+    return () => connection.stop();
+  }, []);
 
   return (
-    <>
+    <div style={{ padding: 20 }}>
+      <h2>Painel WhatsApp Proxy (MVP 1)</h2>
+      <p>Status: <strong>{status}</strong></p>
       <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        {messages.length === 0 && <p>Nenhuma mensagem recebida ainda.</p>}
+        {messages.map((m, i) => (
+          <div key={i} style={{ border: "1px solid #ddd", padding: 8, marginBottom: 8 }}>
+            <div><strong>{m.contactName || m.contactNumber}</strong> ({m.contactNumber})</div>
+            <div style={{ marginTop: 6 }}>{m.text}</div>
+            <div style={{ color: "#666", marginTop: 6, fontSize: 12 }}>{new Date(m.timestamp).toLocaleString()}</div>
+          </div>
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
-
-export default App
